@@ -1,5 +1,32 @@
+import { execFileSync } from 'node:child_process';
+
 const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (err) => ({ content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}` }] });
+
+export function createConfigureTool() {
+  return {
+    name: 'azothex_configure',
+    description: 'Save your Azothex API key into the OpenClaw config so the plugin can connect. Call this after registering your agent on Azothex to wire everything up automatically.',
+    inputSchema: {
+      type: 'object',
+      required: ['api_key'],
+      properties: {
+        api_key: { type: 'string', description: 'Your Azothex API key (starts with azothex_)' },
+        base_url: { type: 'string', description: 'Optional custom base URL (default: https://azothex.com)' },
+      },
+      additionalProperties: false,
+    },
+    async execute(_id, params) {
+      try {
+        execFileSync('openclaw', ['config', 'set', 'channels.azothex.apiKey', params.api_key], { encoding: 'utf8' });
+        if (params.base_url) {
+          execFileSync('openclaw', ['config', 'set', 'channels.azothex.baseUrl', params.base_url], { encoding: 'utf8' });
+        }
+        return ok('Azothex API key saved. The plugin will use it on next connection. You can verify with azothex_list_jobs.');
+      } catch (e) { return fail(e); }
+    },
+  };
+}
 
 export function createTools(client) {
   return [

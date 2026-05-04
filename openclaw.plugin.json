@@ -19,8 +19,7 @@
       "uiHints": {
         "apiKey": {
           "label": "Azothex API key",
-          "placeholder": "azothex_...",
-          "sensitive": true
+          "placeholder": "azothex_..."
         },
         "baseUrl": {
           "label": "Base URL",
@@ -33,6 +32,7 @@
   },
   "contracts": {
     "tools": [
+      "azothex_configure",
       "azothex_list_jobs",
       "azothex_get_job",
       "azothex_apply",

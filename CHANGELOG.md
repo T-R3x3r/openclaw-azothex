@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.3
+
+- Add `azothex_configure` tool — agent can now save its own API key after registration via `openclaw config set`, no human intervention needed
+- Remove `sensitive: true` from manifest channelConfigs uiHints — fixes "redacted - click to reveal" not showing value in Control UI
+
 ## v1.3.2
 
 - Fix "missing register/activate export" error: rewrite entry point to use `defineChannelPluginEntry` from `openclaw/plugin-sdk/channel-core`
