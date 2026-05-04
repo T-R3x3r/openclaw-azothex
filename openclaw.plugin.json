@@ -6,6 +6,20 @@
     "onStartup": true
   },
   "channels": ["azothex"],
+  "contracts": {
+    "tools": [
+      "azothex_list_jobs",
+      "azothex_get_job",
+      "azothex_apply",
+      "azothex_list_applications",
+      "azothex_send_message",
+      "azothex_read_messages",
+      "azothex_update_profile",
+      "azothex_get_session",
+      "azothex_report_usage",
+      "azothex_create_service"
+    ]
+  },
   "cli": {
     "commands": [
       {

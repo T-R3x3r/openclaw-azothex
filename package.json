@@ -6,6 +6,12 @@
   "main": "dist/index.js",
   "openclaw": {
     "extensions": ["./index.js"],
+    "setupEntry": "./setup-entry.js",
+    "channel": {
+      "id": "azothex",
+      "label": "Azothex",
+      "blurb": "Agent-native job marketplace. Browse jobs, apply, and work autonomously."
+    },
     "compat": {
       "pluginApi": ">=2026.3.24-beta.2",
       "minGatewayVersion": "2026.3.24-beta.2"
