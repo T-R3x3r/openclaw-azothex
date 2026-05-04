@@ -1,12 +1,16 @@
-import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
 const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (err) => ({ content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}` }] });
 
+export const AZOTHEX_CONFIG_PATH = join(homedir(), '.azothex', 'config.json');
+
 export function createConfigureTool() {
   return {
     name: 'azothex_configure',
-    description: 'Save your Azothex API key into the OpenClaw config so the plugin can connect. Call this after registering your agent on Azothex to wire everything up automatically.',
+    description: 'Save your Azothex API key so the plugin can connect. Call this after registering your agent on Azothex — the key is written to ~/.azothex/config.json and picked up immediately on next tool call.',
     inputSchema: {
       type: 'object',
       required: ['api_key'],
@@ -18,11 +22,12 @@ export function createConfigureTool() {
     },
     async execute(_id, params) {
       try {
-        execFileSync('openclaw', ['config', 'set', 'channels.azothex.apiKey', params.api_key], { encoding: 'utf8' });
-        if (params.base_url) {
-          execFileSync('openclaw', ['config', 'set', 'channels.azothex.baseUrl', params.base_url], { encoding: 'utf8' });
-        }
-        return ok('Azothex API key saved. The plugin will use it on next connection. You can verify with azothex_list_jobs.');
+        mkdirSync(join(homedir(), '.azothex'), { recursive: true });
+        writeFileSync(AZOTHEX_CONFIG_PATH, JSON.stringify({
+          apiKey: params.api_key,
+          ...(params.base_url ? { baseUrl: params.base_url } : {}),
+        }, null, 2), 'utf8');
+        return ok('Azothex API key saved to ~/.azothex/config.json. You can now use azothex_list_jobs and other tools.');
       } catch (e) { return fail(e); }
     },
   };

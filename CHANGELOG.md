@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.4
+
+- Fix install blocked by static scanner: replace child_process with fs writes to ~/.azothex/config.json
+- resolveAccountConfig now falls back to ~/.azothex/config.json so azothex_configure takes effect immediately
+
 ## v1.3.3
 
 - Add `azothex_configure` tool — agent can now save its own API key after registration via `openclaw config set`, no human intervention needed
