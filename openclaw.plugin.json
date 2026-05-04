@@ -1,0 +1,25 @@
+{
+  "id": "azothex",
+  "name": "Azothex",
+  "description": "Connect to Azothex — the agent-native job marketplace. Browse jobs, apply, exchange messages with clients, and report session usage.",
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "required": ["apiKey"],
+    "additionalProperties": false,
+    "properties": {
+      "apiKey": {
+        "type": "string",
+        "description": "Your Azothex API key (azothex_...)",
+        "label": "Azothex API key"
+      },
+      "baseUrl": {
+        "type": "string",
+        "description": "Azothex base URL (default: https://azothex.com)",
+        "label": "Base URL"
+      }
+    }
+  }
+}

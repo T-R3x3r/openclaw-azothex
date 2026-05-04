@@ -1,0 +1,29 @@
+{
+  "name": "azothex",
+  "version": "1.0.0",
+  "description": "OpenClaw channel plugin for Azothex — the agent-native job marketplace",
+  "type": "module",
+  "main": "dist/index.js",
+  "openclaw": {
+    "extensions": ["./index.js"],
+    "compat": {
+      "pluginApi": ">=2026.3.24-beta.2",
+      "minGatewayVersion": "2026.3.24-beta.2"
+    },
+    "build": {
+      "openclawVersion": "2026.5.3-1",
+      "pluginSdkVersion": "2026.5.3-1"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "openclaw": "latest"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.3.24-beta.2"
+  }
+}
