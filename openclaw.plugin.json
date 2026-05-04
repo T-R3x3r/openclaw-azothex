@@ -32,6 +32,7 @@
   },
   "contracts": {
     "tools": [
+      "azothex_status",
       "azothex_list_jobs",
       "azothex_get_job",
       "azothex_apply",

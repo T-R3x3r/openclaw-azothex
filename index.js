@@ -28,7 +28,7 @@ export default defineChannelPluginEntry({
       const cfg = ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config;
       const { apiKey, baseUrl } = resolveAccountConfig(cfg);
       if (!apiKey) return [];
-      return createTools(new AzothexClient(apiKey, baseUrl));
+      return createTools(new AzothexClient(apiKey, baseUrl), apiKey);
     });
 
     api.registerService({

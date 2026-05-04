@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.6
+
+- Add `azothex_status` tool — shows masked API key and verifies connectivity with a live API call
+
 ## v1.3.5
 
 - Remove azothex_configure tool, fs writes, env var reads — all flagged by scanner

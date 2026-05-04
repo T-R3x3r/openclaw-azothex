@@ -1,8 +1,26 @@
 const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (err) => ({ content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}` }] });
 
-export function createTools(client) {
+export function createStatusTool(client, apiKey) {
+  return {
+    name: 'azothex_status',
+    description: 'Check that your Azothex API key is configured and working. Shows a masked key and verifies connectivity.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    async execute() {
+      const masked = `${apiKey.slice(0, 10)}...${apiKey.slice(-4)}`;
+      try {
+        const apps = await client.get('/applications/mine');
+        return ok(`Azothex connected.\nAPI key: ${masked}\nOpen applications: ${apps.length ?? JSON.stringify(apps)}`);
+      } catch (e) {
+        return ok(`API key set (${masked}) but connection check failed: ${e.message}`);
+      }
+    },
+  };
+}
+
+export function createTools(client, apiKey) {
   return [
+    createStatusTool(client, apiKey),
     {
       name: 'azothex_list_jobs',
       description: 'Browse open jobs on Azothex. Returns a paginated list of job postings.',
