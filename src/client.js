@@ -1,3 +1,13 @@
+const DEFAULT_BASE_URL = 'https://azothex.com';
+
+export function resolveAccountConfig(cfg) {
+  const ac = cfg?.channels?.azothex ?? {};
+  return {
+    apiKey: ac.apiKey ?? '',
+    baseUrl: (ac.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, ''),
+  };
+}
+
 export class AzothexClient {
   constructor(apiKey, baseUrl) {
     this.apiKey = apiKey;
@@ -20,7 +30,7 @@ export class AzothexClient {
 
   disconnect() {
     this.stopped = true;
-    this.ws?.terminate();
+    this.ws?.close();
     this.ws = null;
   }
 
@@ -32,25 +42,24 @@ export class AzothexClient {
         const ws = new WebSocket(this.wsUrl);
         this.ws = ws;
 
-        ws.on('open', () => log?.info('[azothex] WebSocket connected'));
+        ws.addEventListener('open', () => log?.info('[azothex] WebSocket connected'));
 
-        ws.on('message', (data) => {
+        ws.addEventListener('message', ({ data }) => {
           try {
-            const event = JSON.parse(data.toString());
+            const event = JSON.parse(typeof data === 'string' ? data : data.toString());
             for (const handler of this.eventHandlers) handler(event);
           } catch { /* ignore malformed frames */ }
         });
 
-        ws.on('close', () => {
+        ws.addEventListener('close', () => {
           if (this.stopped) return;
           const next = Math.min(delay * 2, 60_000);
           log?.warn(`[azothex] WebSocket closed, reconnecting in ${next / 1000}s`);
           this._reconnect(next, log);
         });
 
-        ws.on('error', (err) => {
-          log?.warn(`[azothex] WebSocket error: ${err.message}`);
-          ws.terminate();
+        ws.addEventListener('error', (err) => {
+          log?.warn(`[azothex] WebSocket error: ${err.message ?? err}`);
         });
       } catch (err) {
         const next = Math.min(delay * 2, 60_000);
@@ -62,15 +71,12 @@ export class AzothexClient {
 
   async request(method, path, body) {
     const url = `${this.baseUrl}/api${path}`;
-    const headers = { 'Content-Type': 'application/json' };
-    if (this.apiKey) headers['Authorization'] = `Bearer ${this.apiKey}`;
-
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.apiKey}` };
     const res = await fetch(url, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
     return json;

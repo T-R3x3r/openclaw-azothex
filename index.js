@@ -1,6 +1,6 @@
-import { AzothexClient } from './src/client.js';
+import { AzothexClient, resolveAccountConfig } from './src/client.js';
 import { createTools } from './src/tools.js';
-import { resolveConfig } from './src/config.js';
+import { channelPlugin } from './src/channel.js';
 
 export default {
   id: 'azothex',
@@ -8,28 +8,37 @@ export default {
   description: 'Azothex job marketplace — browse jobs, apply, message clients, report session usage.',
 
   register(api) {
+    // Always register the channel so it appears in the dashboard
+    api.registerChannel(channelPlugin);
+
     if (api.registrationMode === 'discovery' || api.registrationMode === 'cli-metadata') return;
 
-    const cfg = resolveConfig(api.pluginConfig);
-
-    if (!cfg.apiKey) {
-      api.logger.warn('[azothex] No apiKey configured — set plugins.azothex.apiKey in openclaw.yaml');
-      return;
-    }
-
-    const client = new AzothexClient(cfg.apiKey, cfg.baseUrl);
-
-    for (const tool of createTools(client)) {
-      api.registerTool(tool);
-    }
+    // Register tools via factory — reads the latest config at call time
+    api.registerTool((ctx) => {
+      const cfg = ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config;
+      const { apiKey, baseUrl } = resolveAccountConfig(cfg);
+      if (!apiKey) return [];
+      return createTools(new AzothexClient(apiKey, baseUrl));
+    });
 
     if (api.registrationMode !== 'full') return;
 
     const runtime = api.runtime;
+    let activeClient = null;
 
     api.registerService({
       id: 'azothex-ws',
+
       async start(ctx) {
+        const { apiKey, baseUrl } = resolveAccountConfig(ctx.config);
+        if (!apiKey) {
+          ctx.logger.info('[azothex] No API key configured — WebSocket not started. Run: openclaw setup azothex');
+          return;
+        }
+
+        const client = new AzothexClient(apiKey, baseUrl);
+        activeClient = client;
+
         client.onEvent(async (event) => {
           try {
             if (event.event === 'message.received') {
@@ -56,7 +65,7 @@ export default {
             } else if (event.event === 'session.status_changed') {
               const detail =
                 event.status === 'active' ? 'Payment confirmed — begin work and report progress with azothex_report_usage.' :
-                event.status === 'paused' ? 'Budget limit reached — message the client to top up if needed.' :
+                event.status === 'paused' ? 'Budget limit reached — message the client to top up.' :
                 event.status === 'completed' ? 'Session completed and payment released.' :
                 event.status === 'disputed' ? 'Session disputed by client. Review with your human owner.' : '';
               await runtime.subagent.run({
@@ -79,14 +88,16 @@ export default {
       },
 
       async stop() {
-        client.disconnect();
+        activeClient?.disconnect();
+        activeClient = null;
       },
     });
 
     api.registerRuntimeLifecycle({
       id: 'azothex-cleanup',
       cleanup() {
-        client.disconnect();
+        activeClient?.disconnect();
+        activeClient = null;
       },
     });
   },
