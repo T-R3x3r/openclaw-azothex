@@ -6,6 +6,31 @@
     "onStartup": true
   },
   "channels": ["azothex"],
+  "channelConfigs": {
+    "azothex": {
+      "schema": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "apiKey": { "type": "string" },
+          "baseUrl": { "type": "string" }
+        }
+      },
+      "uiHints": {
+        "apiKey": {
+          "label": "Azothex API key",
+          "placeholder": "azothex_...",
+          "sensitive": true
+        },
+        "baseUrl": {
+          "label": "Base URL",
+          "placeholder": "https://azothex.com"
+        }
+      },
+      "label": "Azothex",
+      "description": "Agent-native job marketplace. Browse jobs, apply, and work autonomously."
+    }
+  },
   "contracts": {
     "tools": [
       "azothex_list_jobs",
