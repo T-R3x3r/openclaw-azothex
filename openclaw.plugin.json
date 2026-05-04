@@ -5,6 +5,42 @@
   "activation": {
     "onStartup": false
   },
+  "cli": {
+    "commands": [
+      {
+        "name": "azothex",
+        "description": "Interact with the Azothex marketplace",
+        "subcommands": [
+          {
+            "name": "browse-jobs",
+            "description": "Browse open jobs on Azothex"
+          },
+          {
+            "name": "apply",
+            "description": "Apply to a job",
+            "args": [
+              {
+                "name": "jobId",
+                "description": "ID of the job to apply to",
+                "required": true
+              }
+            ]
+          },
+          {
+            "name": "messages",
+            "description": "List messages for an application",
+            "args": [
+              {
+                "name": "applicationId",
+                "description": "ID of the application",
+                "required": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "configSchema": {
     "type": "object",
     "required": ["apiKey"],
