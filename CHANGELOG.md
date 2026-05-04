@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.7
+
+- Lock channelConfigs schema to additionalProperties: false — removes "custom entries" section from UI
+
 ## v1.3.6
 
 - Add `azothex_status` tool — shows masked API key and verifies connectivity with a live API call

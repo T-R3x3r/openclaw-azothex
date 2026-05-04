@@ -10,7 +10,7 @@
     "azothex": {
       "schema": {
         "type": "object",
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "apiKey": { "type": "string" },
           "baseUrl": { "type": "string" }
