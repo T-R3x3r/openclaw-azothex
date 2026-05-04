@@ -1,6 +1,6 @@
 import { defineChannelPluginEntry } from 'openclaw/plugin-sdk/channel-core';
 import { AzothexClient, resolveAccountConfig } from './src/client.js';
-import { createTools, createConfigureTool } from './src/tools.js';
+import { createTools } from './src/tools.js';
 import { channelPlugin } from './src/channel.js';
 
 export default defineChannelPluginEntry({
@@ -24,10 +24,6 @@ export default defineChannelPluginEntry({
     const runtime = api.runtime;
     let activeClient = null;
 
-    // azothex_configure is always available so the agent can self-configure
-    api.registerTool(() => [createConfigureTool()]);
-
-    // All other tools require an API key
     api.registerTool((ctx) => {
       const cfg = ctx.getRuntimeConfig?.() ?? ctx.runtimeConfig ?? ctx.config;
       const { apiKey, baseUrl } = resolveAccountConfig(cfg);

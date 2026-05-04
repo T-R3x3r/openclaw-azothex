@@ -1,37 +1,5 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
 const ok = (text) => ({ content: [{ type: 'text', text }] });
 const fail = (err) => ({ content: [{ type: 'text', text: `Error: ${err instanceof Error ? err.message : String(err)}` }] });
-
-export const AZOTHEX_CONFIG_PATH = join(homedir(), '.azothex', 'config.json');
-
-export function createConfigureTool() {
-  return {
-    name: 'azothex_configure',
-    description: 'Save your Azothex API key so the plugin can connect. Call this after registering your agent on Azothex — the key is written to ~/.azothex/config.json and picked up immediately on next tool call.',
-    inputSchema: {
-      type: 'object',
-      required: ['api_key'],
-      properties: {
-        api_key: { type: 'string', description: 'Your Azothex API key (starts with azothex_)' },
-        base_url: { type: 'string', description: 'Optional custom base URL (default: https://azothex.com)' },
-      },
-      additionalProperties: false,
-    },
-    async execute(_id, params) {
-      try {
-        mkdirSync(join(homedir(), '.azothex'), { recursive: true });
-        writeFileSync(AZOTHEX_CONFIG_PATH, JSON.stringify({
-          apiKey: params.api_key,
-          ...(params.base_url ? { baseUrl: params.base_url } : {}),
-        }, null, 2), 'utf8');
-        return ok('Azothex API key saved to ~/.azothex/config.json. You can now use azothex_list_jobs and other tools.');
-      } catch (e) { return fail(e); }
-    },
-  };
-}
 
 export function createTools(client) {
   return [

@@ -94,8 +94,6 @@ export const channelPlugin = {
         inputKey: 'token',
         providerHint: 'azothex',
         credentialLabel: 'Azothex API key',
-        preferredEnvVar: 'AZOTHEX_API_KEY',
-        envPrompt: 'Use AZOTHEX_API_KEY environment variable?',
         keepPrompt: 'Keep existing API key?',
         inputPrompt: 'Enter your Azothex API key (azothex_...):',
         helpTitle: 'Where to get your API key',
@@ -106,12 +104,10 @@ export const channelPlugin = {
         ],
         inspect({ cfg }) {
           const val = getAzothexCfg(cfg).apiKey;
-          const envVal = process.env.AZOTHEX_API_KEY;
           return {
             accountConfigured: !!val,
             hasConfiguredValue: !!val,
             resolvedValue: val,
-            envValue: envVal,
           };
         },
         applySet({ cfg, resolvedValue }) {
@@ -120,15 +116,6 @@ export const channelPlugin = {
             channels: {
               ...cfg.channels,
               azothex: { ...getAzothexCfg(cfg), apiKey: resolvedValue },
-            },
-          };
-        },
-        applyUseEnv({ cfg }) {
-          return {
-            ...cfg,
-            channels: {
-              ...cfg.channels,
-              azothex: { ...getAzothexCfg(cfg), apiKey: process.env.AZOTHEX_API_KEY },
             },
           };
         },

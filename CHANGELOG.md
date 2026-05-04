@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.3.5
+
+- Remove azothex_configure tool, fs writes, env var reads — all flagged by scanner
+- API key is set via the OpenClaw UI channel config (openclaw setup azothex)
+- Simplify resolveAccountConfig and remove preferredEnvVar/applyUseEnv from credential
+
 ## v1.3.4
 
 - Fix install blocked by static scanner: replace child_process with fs writes to ~/.azothex/config.json

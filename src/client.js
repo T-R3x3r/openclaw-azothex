@@ -1,25 +1,10 @@
-import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
 const DEFAULT_BASE_URL = 'https://azothex.com';
-const LOCAL_CONFIG_PATH = join(homedir(), '.azothex', 'config.json');
-
-function readLocalConfig() {
-  try {
-    return JSON.parse(readFileSync(LOCAL_CONFIG_PATH, 'utf8'));
-  } catch {
-    return {};
-  }
-}
 
 export function resolveAccountConfig(cfg) {
   const ac = cfg?.channels?.azothex ?? {};
-  // Fall back to ~/.azothex/config.json so the agent can self-configure
-  const local = ac.apiKey ? {} : readLocalConfig();
   return {
-    apiKey: ac.apiKey ?? local.apiKey ?? process.env.AZOTHEX_API_KEY ?? '',
-    baseUrl: (ac.baseUrl ?? local.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, ''),
+    apiKey: ac.apiKey ?? '',
+    baseUrl: (ac.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, ''),
   };
 }
 
