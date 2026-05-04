@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.2
+
+- Fix "missing register/activate export" error: rewrite entry point to use `defineChannelPluginEntry` from `openclaw/plugin-sdk/channel-core`
+- Update `setup-entry.js` to use `defineSetupPluginEntry`
+
 ## v1.3.1
 
 - Add `channelConfigs` to manifest — fixes "channel plugin manifest declares azothex without channelConfigs metadata" config warning

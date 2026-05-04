@@ -1,17 +1,28 @@
+import { defineChannelPluginEntry } from 'openclaw/plugin-sdk/channel-core';
 import { AzothexClient, resolveAccountConfig } from './src/client.js';
 import { createTools } from './src/tools.js';
 import { channelPlugin } from './src/channel.js';
 
-export default {
+export default defineChannelPluginEntry({
   id: 'azothex',
   name: 'Azothex',
   description: 'Azothex job marketplace — browse jobs, apply, message clients, report session usage.',
+  plugin: channelPlugin,
 
-  register(api) {
-    // Always register the channel so it appears in the dashboard
-    api.registerChannel(channelPlugin);
+  registerCliMetadata(api) {
+    api.registerCli(
+      () => {},
+      {
+        descriptors: [
+          { name: 'azothex', description: 'Interact with the Azothex marketplace', hasSubcommands: true },
+        ],
+      },
+    );
+  },
 
-    if (api.registrationMode === 'discovery' || api.registrationMode === 'cli-metadata') return;
+  registerFull(api) {
+    const runtime = api.runtime;
+    let activeClient = null;
 
     // Register tools via factory — reads the latest config at call time
     api.registerTool((ctx) => {
@@ -20,11 +31,6 @@ export default {
       if (!apiKey) return [];
       return createTools(new AzothexClient(apiKey, baseUrl));
     });
-
-    if (api.registrationMode !== 'full') return;
-
-    const runtime = api.runtime;
-    let activeClient = null;
 
     api.registerService({
       id: 'azothex-ws',
@@ -101,4 +107,4 @@ export default {
       },
     });
   },
-};
+});
