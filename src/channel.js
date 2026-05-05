@@ -256,13 +256,14 @@ export const channelPlugin = Object.assign(corePlugin, {
         return;
       }
 
-      // Correct path: ctx.runtime.channel.reply (not ctx.channelRuntime)
-      const dispatchReply = ctx.runtime?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher?.bind(
-        ctx.runtime.channel.reply,
+      // ctx.channelRuntime is the PluginRuntimeChannel surface injected by the gateway.
+      // ctx.runtime is only RuntimeEnv (log/error/exit) — it does NOT have subagent or channel.
+      const dispatchReply = ctx.channelRuntime?.reply?.dispatchReplyWithBufferedBlockDispatcher?.bind(
+        ctx.channelRuntime.reply,
       );
 
       if (!dispatchReply) {
-        ctx.log?.warn('[azothex] channel.reply.dispatchReplyWithBufferedBlockDispatcher not available - session.message turns will fall back to subagent');
+        ctx.log?.warn('[azothex] channelRuntime.reply not available - cannot dispatch turns');
       }
 
       const client = new AzothexClient(apiKey, baseUrl);
@@ -270,114 +271,132 @@ export const channelPlugin = Object.assign(corePlugin, {
       let settled = false;
 
       client.onEvent(async (event) => {
+        if (!dispatchReply) {
+          ctx.log?.warn(`[azothex] skipping ${event.event} — channelRuntime unavailable`);
+          return;
+        }
+
         try {
           if (event.event === 'session.message') {
             const sessionId = String(event.session_id);
-            const sessionKey = `azothex:session:${sessionId}`;
+            const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            let streamStarted = false;
+            let accumulatedText = '';
 
-            if (dispatchReply) {
-              const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-              let streamStarted = false;
-              let accumulatedText = '';
-
-              await dispatchReply({
-                ctx: {
-                  SessionKey: sessionKey,
-                  Body: event.body,
-                  BodyForAgent: event.body,
-                  From: String(event.user_id ?? event.sender_id ?? 'user'),
-                  To: sessionId,
-                  AccountId: ctx.accountId,
-                },
-                cfg: ctx.cfg,
-                dispatcherOptions: {
-                  typingCallbacks: {
-                    // Fires precisely when LLM starts generating — much more accurate than
-                    // the backend-side emit which fires on message receipt.
-                    onReplyStart: async () => {
-                      try {
-                        await client.post(`/sessions/${sessionId}/typing`, {});
-                      } catch { /* non-critical */ }
-                    },
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${sessionId}`,
+                Body: event.body,
+                BodyForAgent: event.body,
+                From: String(event.user_id ?? event.sender_id ?? 'user'),
+                To: sessionId,
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: {
+                typingCallbacks: {
+                  onReplyStart: async () => {
+                    try { await client.post(`/sessions/${sessionId}/typing`, {}); } catch { /* non-critical */ }
                   },
-                  deliver: async (payload, info) => {
-                    const kind = info?.kind;
-                    const text = payload?.text ?? '';
+                },
+                deliver: async (payload, info) => {
+                  const kind = info?.kind;
+                  const text = payload?.text ?? '';
 
-                    if (kind === 'block') {
-                      // Real LLM streaming chunk — forward to client immediately.
-                      if (!text) return;
-                      streamStarted = true;
-                      accumulatedText += text;
+                  if (kind === 'block') {
+                    if (!text) return;
+                    streamStarted = true;
+                    accumulatedText += text;
+                    try {
+                      await client.post(`/sessions/${sessionId}/stream`, { stream_id: streamId, chunk: text, done: false });
+                    } catch (err) {
+                      ctx.log?.warn(`[azothex] stream chunk failed: ${err}`);
+                    }
+                  } else if (kind === 'tool') {
+                    try {
+                      await client.post(`/sessions/${sessionId}/tool-call`, {
+                        tool_call_id: payload?.toolCallId ?? payload?.tool_call_id ?? `tc_${Date.now()}`,
+                        name: payload?.toolName ?? payload?.tool_name ?? payload?.name ?? 'tool',
+                        status: 'running',
+                        input: payload?.toolInput ?? payload?.input ?? undefined,
+                        output: payload?.toolOutput ?? payload?.output ?? undefined,
+                      });
+                    } catch (err) {
+                      ctx.log?.warn(`[azothex] tool-call notify failed: ${err}`);
+                    }
+                  } else if (kind === 'final') {
+                    const finalText = text || accumulatedText;
+                    if (!finalText) return;
+                    if (streamStarted) {
                       try {
-                        await client.post(`/sessions/${sessionId}/stream`, {
-                          stream_id: streamId,
-                          chunk: text,
-                          done: false,
-                        });
-                      } catch (err) {
-                        ctx.log?.warn(`[azothex] stream chunk failed: ${err}`);
-                      }
-                    } else if (kind === 'tool') {
-                      // Tool call in progress — surface it to the client.
-                      try {
-                        const toolPayload = {
-                          tool_call_id: payload?.toolCallId ?? payload?.tool_call_id ?? `tc_${Date.now()}`,
-                          name: payload?.toolName ?? payload?.tool_name ?? payload?.name ?? 'tool',
-                          status: 'running',
-                          input: payload?.toolInput ?? payload?.input ?? undefined,
-                          output: payload?.toolOutput ?? payload?.output ?? undefined,
-                        };
-                        await client.post(`/sessions/${sessionId}/tool-call`, toolPayload);
-                      } catch (err) {
-                        ctx.log?.warn(`[azothex] tool-call notify failed: ${err}`);
-                      }
-                    } else if (kind === 'final') {
-                      // Complete reply — finalize the stream or send directly.
-                      const finalText = text || accumulatedText;
-                      if (!finalText) return;
-
-                      if (streamStarted) {
-                        try {
-                          await client.post(`/sessions/${sessionId}/stream`, {
-                            stream_id: streamId,
-                            chunk: '',
-                            done: true,
-                            body: finalText,
-                          });
-                        } catch {
-                          await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
-                        }
-                      } else {
+                        await client.post(`/sessions/${sessionId}/stream`, { stream_id: streamId, chunk: '', done: true, body: finalText });
+                      } catch {
                         await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
                       }
+                    } else {
+                      await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
                     }
-                  },
+                  }
                 },
-              });
-            } else {
-              await ctx.runtime.subagent.run({
-                sessionKey,
-                message: event.body,
-                extraSystemPrompt: `You are in an active Azothex paid session (session #${sessionId}). Respond to the message above by calling azothex_send_message with session_id=${sessionId}.`,
-              });
-            }
+              },
+            });
+
           } else if (event.event === 'message.received') {
-            await ctx.runtime.subagent.run({
-              sessionKey: `azothex:app:${event.application_id}`,
-              message: `[Azothex message from ${event.sender_name} on job "${event.job_title}" (application #${event.application_id})]:\n${event.body}`,
+            const appId = event.application_id;
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:app:${appId}`,
+                Body: `[Azothex message from ${event.sender_name} on job "${event.job_title}" (application #${appId})]:\n${event.body}`,
+                BodyForAgent: event.body,
+                From: String(event.sender_id ?? event.user_id ?? 'user'),
+                To: String(appId),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: {
+                deliver: async (payload, info) => {
+                  if (info?.kind === 'final' && payload?.text) {
+                    await client.post(`/applications/${appId}/messages`, { body: payload.text });
+                  }
+                },
+              },
             });
+
           } else if (event.event === 'application.accepted') {
-            await ctx.runtime.subagent.run({
-              sessionKey: `azothex:app:${event.application_id}`,
-              message: `[Azothex] Your application #${event.application_id} for "${event.job_title}" was ACCEPTED. Introduce yourself and discuss next steps with azothex_send_message.`,
+            const appId = event.application_id;
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:app:${appId}`,
+                Body: `[Azothex] Your application #${appId} for "${event.job_title}" was ACCEPTED. Introduce yourself and discuss next steps.`,
+                BodyForAgent: `Your application #${appId} for "${event.job_title}" was ACCEPTED.`,
+                From: 'azothex',
+                To: String(appId),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: {
+                deliver: async (payload, info) => {
+                  if (info?.kind === 'final' && payload?.text) {
+                    await client.post(`/applications/${appId}/messages`, { body: payload.text });
+                  }
+                },
+              },
             });
+
           } else if (event.event === 'application.rejected') {
-            await ctx.runtime.subagent.run({
-              sessionKey: `azothex:app:${event.application_id}`,
-              message: `[Azothex] Your application #${event.application_id} for "${event.job_title}" was rejected.`,
-              deliver: false,
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:app:${event.application_id}`,
+                Body: `[Azothex] Your application #${event.application_id} for "${event.job_title}" was rejected.`,
+                BodyForAgent: `Application #${event.application_id} was rejected.`,
+                From: 'azothex',
+                To: String(event.application_id),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: { deliver: async () => { /* no outbound reply needed */ } },
             });
+
           } else if (event.event === 'session.status_changed') {
             if (event.status === 'active') return;
             const detail =
@@ -385,15 +404,31 @@ export const channelPlugin = Object.assign(corePlugin, {
               event.status === 'completed' ? 'Session completed and payment released.' :
               event.status === 'disputed' ? 'Session disputed by client. Review with your human owner.' : '';
             if (!detail) return;
-            await ctx.runtime.subagent.run({
-              sessionKey: `azothex:session:${event.session_id}`,
-              message: `[Azothex] Session #${event.session_id} is now "${event.status}". ${detail}`,
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${event.session_id}`,
+                Body: `[Azothex] Session #${event.session_id} is now "${event.status}". ${detail}`,
+                BodyForAgent: `Session #${event.session_id} status: ${event.status}. ${detail}`,
+                From: 'azothex',
+                To: String(event.session_id),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: { deliver: async () => { /* status events don't need an outbound reply */ } },
             });
+
           } else if (event.event === 'session.completed') {
-            await ctx.runtime.subagent.run({
-              sessionKey: `azothex:session:${event.session_id}`,
-              message: `[Azothex] Session #${event.session_id} completed. Effective charge: $${event.effective_charge.toFixed(2)}.`,
-              deliver: false,
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${event.session_id}`,
+                Body: `[Azothex] Session #${event.session_id} completed. Effective charge: $${event.effective_charge.toFixed(2)}.`,
+                BodyForAgent: `Session #${event.session_id} completed. Charge: $${event.effective_charge.toFixed(2)}.`,
+                From: 'azothex',
+                To: String(event.session_id),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: { deliver: async () => { /* no outbound reply needed */ } },
             });
           }
         } catch (err) {
