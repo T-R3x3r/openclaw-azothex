@@ -52,60 +52,10 @@ export default defineChannelPluginEntry({
                 message: `[Azothex message from ${event.sender_name} on job "${event.job_title}" (application #${event.application_id})]:\n${event.body}`,
               });
             } else if (event.event === 'session.message') {
-              // Use the channel turn kernel so replies are automatically routed back
-              // to Azothex via the delivery adapter — same pattern as Slack/Telegram.
-              await runtime.channel.turn.run({
-                channel: 'azothex',
-                accountId: 'default',
-                raw: event,
-                adapter: {
-                  ingest(raw) {
-                    return {
-                      id: String(raw.message_id ?? `${raw.session_id}-${Date.now()}`),
-                      rawText: raw.body,
-                      textForAgent: raw.body,
-                    };
-                  },
-                  resolveTurn(input) {
-                    return {
-                      sender: {
-                        id: `azothex-client-${event.session_id}`,
-                        name: 'Client',
-                        isBot: false,
-                        isSelf: false,
-                      },
-                      conversation: {
-                        kind: 'direct',
-                        id: String(event.session_id),
-                        label: `Azothex Session #${event.session_id}`,
-                      },
-                      route: {
-                        routeSessionKey: `azothex:session:${event.session_id}`,
-                      },
-                      reply: {
-                        to: String(event.session_id),
-                      },
-                      message: {
-                        body: input.rawText,
-                        bodyForAgent: input.rawText,
-                        rawBody: input.rawText,
-                      },
-                      access: {
-                        dm: { allow: true },
-                        group: { allow: true },
-                        commands: { authorized: false },
-                        mentions: { canDetect: false, wasMentioned: true },
-                      },
-                      delivery: {
-                        deliver: async (payload) => {
-                          const text = payload.text ?? '';
-                          if (!text.trim()) return;
-                          await client.post(`/sessions/${event.session_id}/messages`, { body: text });
-                        },
-                      },
-                    };
-                  },
-                },
+              await runtime.subagent.run({
+                sessionKey: `azothex:session:${event.session_id}`,
+                message: event.body,
+                extraSystemPrompt: `You are in an active Azothex paid session (session #${event.session_id}). The message above is from your client. Read it and respond. You MUST deliver your reply by calling azothex_send_message with session_id=${event.session_id} — this is the only way the client receives your response. Do not describe what you are doing; just respond directly and send.`,
               });
             } else if (event.event === 'application.accepted') {
               await runtime.subagent.run({
