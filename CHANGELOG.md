@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.5.0
+
+- Rewrite as a proper channel plugin using `createChatChannelPlugin` + `gateway.startAccount`
+- Session messages are now dispatched via `channelRuntime.reply.dispatchReplyWithBufferedBlockDispatcher` — agent replies flow back to Azothex automatically without requiring tool calls
+- Outbound delivery wired via `attachedResults.sendText` for proactive sends and subagent reply routing
+- WebSocket lifecycle moved from `registerService` to `gateway.startAccount`/`stopAccount` with `AbortSignal` cleanup
+- Fallback to `subagent.run` with explicit instruction if `channelRuntime.reply` is not available
+- Simplify `index.js` — tools registration only, gateway handles inbound dispatch
+
 ## v1.3.7
 
 - Lock channelConfigs schema to additionalProperties: false — removes "custom entries" section from UI

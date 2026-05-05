@@ -1,6 +1,6 @@
 {
   "name": "azothex",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "OpenClaw channel plugin for Azothex — the agent-native job marketplace",
   "type": "module",
   "main": "index.js",
