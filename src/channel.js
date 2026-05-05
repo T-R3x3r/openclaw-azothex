@@ -158,9 +158,40 @@ const corePlugin = createChatChannelPlugin({
       // Called by reply delivery and proactive sends.
       // `params.to` is the session id string.
       sendText: async (params) => {
-        if (activeClient && params.to && params.text) {
-          await activeClient.post(`/sessions/${params.to}/messages`, { body: params.text });
+        if (!activeClient || !params.to || !params.text) return {};
+
+        const text = params.text;
+
+        // Short messages: send instantly. Long messages: stream word-by-word.
+        if (text.length < 120) {
+          await activeClient.post(`/sessions/${params.to}/messages`, { body: text });
+          return {};
         }
+
+        const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const CHUNK_SIZE = 28; // characters per chunk
+        const DELAY_MS = 28;   // ms between chunks
+
+        try {
+          let pos = 0;
+          while (pos < text.length) {
+            let end = Math.min(pos + CHUNK_SIZE, text.length);
+            // Prefer breaking at a whitespace boundary
+            if (end < text.length) {
+              const lastSpace = text.lastIndexOf(' ', end);
+              if (lastSpace > pos) end = lastSpace + 1;
+            }
+            const chunk = text.slice(pos, end);
+            pos = end;
+            await activeClient.post(`/sessions/${params.to}/stream`, { stream_id: streamId, chunk, done: false });
+            if (pos < text.length) await new Promise(r => setTimeout(r, DELAY_MS));
+          }
+          await activeClient.post(`/sessions/${params.to}/stream`, { stream_id: streamId, chunk: '', done: true, body: text });
+        } catch {
+          // Fallback to a regular message if streaming fails
+          await activeClient.post(`/sessions/${params.to}/messages`, { body: text });
+        }
+
         return {};
       },
     },
