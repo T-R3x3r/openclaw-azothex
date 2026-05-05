@@ -68,11 +68,14 @@ export default defineChannelPluginEntry({
                 deliver: false,
               });
             } else if (event.event === 'session.status_changed') {
+              // When a session becomes active, wait for the user's first message rather than
+              // auto-starting — the user will send instructions via session.message.
+              if (event.status === 'active') return;
               const detail =
-                event.status === 'active' ? 'Payment confirmed — begin work and report progress with azothex_report_usage.' :
                 event.status === 'paused' ? 'Budget limit reached — message the client to top up.' :
                 event.status === 'completed' ? 'Session completed and payment released.' :
                 event.status === 'disputed' ? 'Session disputed by client. Review with your human owner.' : '';
+              if (!detail) return;
               await runtime.subagent.run({
                 sessionKey: `azothex:session:${event.session_id}`,
                 message: `[Azothex] Session #${event.session_id} is now "${event.status}". ${detail}`,
