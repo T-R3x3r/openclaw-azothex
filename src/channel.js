@@ -155,43 +155,10 @@ const corePlugin = createChatChannelPlugin({
   outbound: {
     attachedResults: {
       channel: 'azothex',
-      // Called by reply delivery and proactive sends.
-      // `params.to` is the session id string.
+      // Proactive / fallback sends — session replies go through dispatchReplyWithBufferedBlockDispatcher.
       sendText: async (params) => {
         if (!activeClient || !params.to || !params.text) return {};
-
-        const text = params.text;
-
-        // Short messages: send instantly. Long messages: stream word-by-word.
-        if (text.length < 120) {
-          await activeClient.post(`/sessions/${params.to}/messages`, { body: text });
-          return {};
-        }
-
-        const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const CHUNK_SIZE = 28; // characters per chunk
-        const DELAY_MS = 28;   // ms between chunks
-
-        try {
-          let pos = 0;
-          while (pos < text.length) {
-            let end = Math.min(pos + CHUNK_SIZE, text.length);
-            // Prefer breaking at a whitespace boundary
-            if (end < text.length) {
-              const lastSpace = text.lastIndexOf(' ', end);
-              if (lastSpace > pos) end = lastSpace + 1;
-            }
-            const chunk = text.slice(pos, end);
-            pos = end;
-            await activeClient.post(`/sessions/${params.to}/stream`, { stream_id: streamId, chunk, done: false });
-            if (pos < text.length) await new Promise(r => setTimeout(r, DELAY_MS));
-          }
-          await activeClient.post(`/sessions/${params.to}/stream`, { stream_id: streamId, chunk: '', done: true, body: text });
-        } catch {
-          // Fallback to a regular message if streaming fails
-          await activeClient.post(`/sessions/${params.to}/messages`, { body: text });
-        }
-
+        await activeClient.post(`/sessions/${params.to}/messages`, { body: params.text });
         return {};
       },
     },
@@ -289,12 +256,13 @@ export const channelPlugin = Object.assign(corePlugin, {
         return;
       }
 
-      const dispatchReply = ctx.channelRuntime?.reply?.dispatchReplyWithBufferedBlockDispatcher?.bind(
-        ctx.channelRuntime.reply,
+      // Correct path: ctx.runtime.channel.reply (not ctx.channelRuntime)
+      const dispatchReply = ctx.runtime?.channel?.reply?.dispatchReplyWithBufferedBlockDispatcher?.bind(
+        ctx.runtime.channel.reply,
       );
 
       if (!dispatchReply) {
-        ctx.log?.warn('[azothex] channelRuntime.reply not available - session.message turns will fall back to subagent');
+        ctx.log?.warn('[azothex] channel.reply.dispatchReplyWithBufferedBlockDispatcher not available - session.message turns will fall back to subagent');
       }
 
       const client = new AzothexClient(apiKey, baseUrl);
@@ -308,6 +276,10 @@ export const channelPlugin = Object.assign(corePlugin, {
             const sessionKey = `azothex:session:${sessionId}`;
 
             if (dispatchReply) {
+              const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+              let streamStarted = false;
+              let accumulatedText = '';
+
               await dispatchReply({
                 ctx: {
                   SessionKey: sessionKey,
@@ -319,10 +291,66 @@ export const channelPlugin = Object.assign(corePlugin, {
                 },
                 cfg: ctx.cfg,
                 dispatcherOptions: {
-                  deliver: async (payload) => {
-                    const text = payload?.text;
-                    if (text) {
-                      await client.post(`/sessions/${sessionId}/messages`, { body: text });
+                  typingCallbacks: {
+                    // Fires precisely when LLM starts generating — much more accurate than
+                    // the backend-side emit which fires on message receipt.
+                    onReplyStart: async () => {
+                      try {
+                        await client.post(`/sessions/${sessionId}/typing`, {});
+                      } catch { /* non-critical */ }
+                    },
+                  },
+                  deliver: async (payload, info) => {
+                    const kind = info?.kind;
+                    const text = payload?.text ?? '';
+
+                    if (kind === 'block') {
+                      // Real LLM streaming chunk — forward to client immediately.
+                      if (!text) return;
+                      streamStarted = true;
+                      accumulatedText += text;
+                      try {
+                        await client.post(`/sessions/${sessionId}/stream`, {
+                          stream_id: streamId,
+                          chunk: text,
+                          done: false,
+                        });
+                      } catch (err) {
+                        ctx.log?.warn(`[azothex] stream chunk failed: ${err}`);
+                      }
+                    } else if (kind === 'tool') {
+                      // Tool call in progress — surface it to the client.
+                      try {
+                        const toolPayload = {
+                          tool_call_id: payload?.toolCallId ?? payload?.tool_call_id ?? `tc_${Date.now()}`,
+                          name: payload?.toolName ?? payload?.tool_name ?? payload?.name ?? 'tool',
+                          status: 'running',
+                          input: payload?.toolInput ?? payload?.input ?? undefined,
+                          output: payload?.toolOutput ?? payload?.output ?? undefined,
+                        };
+                        await client.post(`/sessions/${sessionId}/tool-call`, toolPayload);
+                      } catch (err) {
+                        ctx.log?.warn(`[azothex] tool-call notify failed: ${err}`);
+                      }
+                    } else if (kind === 'final') {
+                      // Complete reply — finalize the stream or send directly.
+                      const finalText = text || accumulatedText;
+                      if (!finalText) return;
+
+                      if (streamStarted) {
+                        try {
+                          await client.post(`/sessions/${sessionId}/stream`, {
+                            stream_id: streamId,
+                            chunk: '',
+                            done: true,
+                            body: finalText,
+                          });
+                        } catch {
+                          await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
+                        }
+                      } else {
+                        await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
+                      }
                     }
                   },
                 },
