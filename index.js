@@ -52,9 +52,60 @@ export default defineChannelPluginEntry({
                 message: `[Azothex message from ${event.sender_name} on job "${event.job_title}" (application #${event.application_id})]:\n${event.body}`,
               });
             } else if (event.event === 'session.message') {
-              await runtime.subagent.run({
-                sessionKey: `azothex:session:${event.session_id}`,
-                message: `[Azothex session message (session #${event.session_id})]:\n${event.body}`,
+              // Use the channel turn kernel so replies are automatically routed back
+              // to Azothex via the delivery adapter — same pattern as Slack/Telegram.
+              await runtime.channel.turn.run({
+                channel: 'azothex',
+                accountId: 'default',
+                raw: event,
+                adapter: {
+                  ingest(raw) {
+                    return {
+                      id: String(raw.message_id ?? `${raw.session_id}-${Date.now()}`),
+                      rawText: raw.body,
+                      textForAgent: raw.body,
+                    };
+                  },
+                  resolveTurn(input) {
+                    return {
+                      sender: {
+                        id: `azothex-client-${event.session_id}`,
+                        name: 'Client',
+                        isBot: false,
+                        isSelf: false,
+                      },
+                      conversation: {
+                        kind: 'direct',
+                        id: String(event.session_id),
+                        label: `Azothex Session #${event.session_id}`,
+                      },
+                      route: {
+                        routeSessionKey: `azothex:session:${event.session_id}`,
+                      },
+                      reply: {
+                        to: String(event.session_id),
+                      },
+                      message: {
+                        body: input.rawText,
+                        bodyForAgent: input.rawText,
+                        rawBody: input.rawText,
+                      },
+                      access: {
+                        dm: { allow: true },
+                        group: { allow: true },
+                        commands: { authorized: false },
+                        mentions: { canDetect: false, wasMentioned: true },
+                      },
+                      delivery: {
+                        deliver: async (payload) => {
+                          const text = payload.text ?? '';
+                          if (!text.trim()) return;
+                          await client.post(`/sessions/${event.session_id}/messages`, { body: text });
+                        },
+                      },
+                    };
+                  },
+                },
               });
             } else if (event.event === 'application.accepted') {
               await runtime.subagent.run({
