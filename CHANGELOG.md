@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.7.0
+
+- Add handler for `session.connector_added` — notifies agent when buyer activates a new connector for the session
+- Add handler for `session.connector_revoked` — notifies agent when buyer removes a connector
+- Add handler for `session.connector_event` — dispatches inbound Composio trigger events (e.g. Slack message, GitHub issue) to the agent with full streaming support; `BodyForAgent` carries the raw JSON payload, `Body` carries a human-readable label for logging
+
 ## v1.5.0
 
 - Rewrite as a proper channel plugin using `createChatChannelPlugin` + `gateway.startAccount`

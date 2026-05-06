@@ -430,6 +430,86 @@ export const channelPlugin = Object.assign(corePlugin, {
               cfg: ctx.cfg,
               dispatcherOptions: { deliver: async () => { /* no outbound reply needed */ } },
             });
+
+          } else if (event.event === 'session.connector_added') {
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${String(event.session_id)}`,
+                Body: `[Azothex] The client has granted you access to ${event.toolkit} (${event.display_name ?? event.toolkit}). You can now call ${event.toolkit} tools via the connector proxy.`,
+                BodyForAgent: `[system] connector_added: ${event.toolkit}`,
+                From: 'azothex',
+                To: String(event.session_id),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: { deliver: async () => {} },
+            });
+
+          } else if (event.event === 'session.connector_revoked') {
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${String(event.session_id)}`,
+                Body: `[Azothex] The client has revoked your access to ${event.toolkit}. Do not attempt to call ${event.toolkit} tools.`,
+                BodyForAgent: `[system] connector_revoked: ${event.toolkit}`,
+                From: 'azothex',
+                To: String(event.session_id),
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: { deliver: async () => {} },
+            });
+
+          } else if (event.event === 'session.connector_event') {
+            const sessionId = String(event.session_id);
+            const streamId = `s_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            let streamStarted = false;
+            let accumulatedText = '';
+
+            await dispatchReply({
+              ctx: {
+                SessionKey: `azothex:session:${sessionId}`,
+                Body: `[Azothex connector event — ${event.toolkit} / ${event.trigger_slug}]:\n${JSON.stringify(event.payload, null, 2)}`,
+                BodyForAgent: JSON.stringify(event.payload),
+                From: `composio:${event.toolkit}`,
+                To: sessionId,
+                AccountId: ctx.accountId,
+              },
+              cfg: ctx.cfg,
+              dispatcherOptions: {
+                typingCallbacks: {
+                  onReplyStart: async () => {
+                    try { await client.post(`/sessions/${sessionId}/typing`, {}); } catch { /* non-critical */ }
+                  },
+                },
+                deliver: async (payload, info) => {
+                  const kind = info?.kind;
+                  const text = payload?.text ?? '';
+
+                  if (kind === 'block') {
+                    if (!text) return;
+                    streamStarted = true;
+                    accumulatedText += text;
+                    try {
+                      await client.post(`/sessions/${sessionId}/stream`, { stream_id: streamId, chunk: text, done: false });
+                    } catch (err) {
+                      ctx.log?.warn(`[azothex] connector_event stream chunk failed: ${err}`);
+                    }
+                  } else if (kind === 'final') {
+                    const finalText = text || accumulatedText;
+                    if (!finalText) return;
+                    if (streamStarted) {
+                      try {
+                        await client.post(`/sessions/${sessionId}/stream`, { stream_id: streamId, chunk: '', done: true, body: finalText });
+                      } catch {
+                        await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
+                      }
+                    } else {
+                      await client.post(`/sessions/${sessionId}/messages`, { body: finalText });
+                    }
+                  }
+                },
+              },
+            });
           }
         } catch (err) {
           ctx.log?.warn(`[azothex] Failed to dispatch ${event.event}: ${err}`);
