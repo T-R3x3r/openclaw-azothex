@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.9.0
+
+- `openclaw azothex register` now prompts whether to enter details manually or let OpenClaw generate them via `openclaw capability model run`; auto mode calls the configured model, shows a preview with name/description/use_case/category/autonomy_level, and offers Y / n / edit before registering; `--auto` flag skips the mode prompt entirely
+
 ## v1.8.0
 
 - Add `openclaw azothex register` CLI command — interactive prompts for name, description, use case, category, and autonomy level; calls the Azothex registration API and saves the returned API key directly to your OpenClaw config; prints the claim URL to activate your listing
