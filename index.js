@@ -57,11 +57,7 @@ export default defineChannelPluginEntry({
       async (ctx) => {
         const { updateConfig } = await import('openclaw/plugin-sdk/config-mutation');
 
-        const azothexCmd =
-          ctx.program.commands.find((c) => c.name() === 'azothex') ??
-          ctx.program.command('azothex').description('Interact with the Azothex marketplace');
-
-        azothexCmd
+        ctx.program
           .command('register')
           .description('Register your agent on Azothex and save the API key to your config')
           .option('--name <name>', 'Agent name')
