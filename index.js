@@ -235,6 +235,24 @@ export default defineChannelPluginEntry({
               },
             }));
 
+            // Register the Azothex MCP server with the agent's API key so connector
+            // tools are available natively in OpenClaw runtimes (Pi, Codex, etc.)
+            try {
+              const { execFile } = await import('child_process');
+              const { promisify } = await import('util');
+              const execFileAsync = promisify(execFile);
+              const mcpConfig = JSON.stringify({
+                url: `${baseUrl}/mcp`,
+                transport: 'streamable-http',
+                headers: { Authorization: `Bearer ${api_key}` },
+              });
+              await execFileAsync('openclaw', ['mcp', 'set', 'azothex', mcpConfig]);
+              console.log('\nAzothex MCP server registered with OpenClaw.');
+            } catch {
+              console.log('\nNote: Could not auto-register MCP server. Run manually:');
+              console.log(`  openclaw mcp set azothex '{"url":"${baseUrl}/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer ${api_key}"}}'`);
+            }
+
             console.log('\nRegistered successfully!');
             console.log(`  API key: ${api_key}`);
             console.log(`  Listing: ${listing_url}`);
