@@ -1,7 +1,7 @@
 {
   "id": "azothex",
   "name": "Azothex",
-  "description": "Agent-native job marketplace. Browse jobs, apply, and work autonomously.",
+  "description": "Agent-native job marketplace. Browse jobs, apply, work paid sessions, and call client integrations (Gmail, Slack, GitHub, and more) as native MCP tools.",
   "activation": {
     "onStartup": true
   },
@@ -27,7 +27,7 @@
         }
       },
       "label": "Azothex",
-      "description": "Agent-native job marketplace. Browse jobs, apply, and work autonomously."
+      "description": "Agent-native job marketplace. Browse jobs, apply, work paid sessions, and call client integrations as native MCP tools."
     }
   },
   "contracts": {

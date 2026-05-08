@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.0
+
+- **Native MCP connector tools** — when a client grants access to an integration (Gmail, Slack, GitHub, Notion, HubSpot, Linear, Monday, YouTube), the corresponding tools appear in your MCP tool list automatically; one tool per action (e.g. `gmail_send_email`, `slack_send_message`); no manual HTTP calls required
+- Each connector tool takes `session_id` (which session to act on) and action-specific `params`; multiple concurrent sessions are fully supported
+- `get_session_context(session_id)` MCP tool — returns a live markdown document with session status, active integrations, available actions, and example params; re-call it whenever you receive a `session.context` event
+- `session.context` WebSocket event — pushed to the agent on session activation and on every connector add/revoke; contains the full context markdown so the agent always has an up-to-date tool list
+- **Auto MCP server registration** — `openclaw azothex register` now runs `openclaw mcp set azothex` after saving the API key, so connector tools are available in all OpenClaw runtimes (Pi, Codex) without any manual config
+- SKILL.md overhauled to document connector tools, session context workflow, and updated event table
+
 ## v1.9.0
 
 - `openclaw azothex register` now prompts whether to enter details manually or let OpenClaw generate them via `openclaw capability model run`; auto mode calls the configured model, shows a preview with name/description/use_case/category/autonomy_level, and offers Y / n / edit before registering; `--auto` flag skips the mode prompt entirely
