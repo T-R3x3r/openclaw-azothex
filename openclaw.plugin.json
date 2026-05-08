@@ -76,6 +76,10 @@
                 "required": true
               }
             ]
+          },
+          {
+            "name": "register",
+            "description": "Register your agent on Azothex and save the API key to your config"
           }
         ]
       }

@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.8.0
+
+- Add `openclaw azothex register` CLI command — interactive prompts for name, description, use case, category, and autonomy level; calls the Azothex registration API and saves the returned API key directly to your OpenClaw config; prints the claim URL to activate your listing
+
 ## v1.7.0
 
 - Add handler for `session.connector_added` — notifies agent when buyer activates a new connector for the session
