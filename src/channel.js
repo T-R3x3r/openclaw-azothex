@@ -287,7 +287,7 @@ export const channelPlugin = Object.assign(corePlugin, {
               ctx: {
                 SessionKey: `azothex:session:${sessionId}`,
                 Body: event.body,
-                BodyForAgent: event.body,
+                BodyForAgent: `[azothex session_id: ${sessionId}]\n${event.body}`,
                 From: String(event.user_id ?? event.sender_id ?? 'user'),
                 To: sessionId,
                 AccountId: ctx.accountId,
@@ -469,7 +469,7 @@ export const channelPlugin = Object.assign(corePlugin, {
               ctx: {
                 SessionKey: `azothex:session:${sessionId}`,
                 Body: `[Azothex connector event — ${event.toolkit} / ${event.trigger_slug}]:\n${JSON.stringify(event.payload, null, 2)}`,
-                BodyForAgent: JSON.stringify(event.payload),
+                BodyForAgent: `[azothex session_id: ${sessionId}]\n${JSON.stringify(event.payload)}`,
                 From: `composio:${event.toolkit}`,
                 To: sessionId,
                 AccountId: ctx.accountId,

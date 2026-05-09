@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.0.3
+
+- Inject `[azothex session_id: N]` at the top of every `BodyForAgent` for `session.message` and `session.connector_event` turns so the agent always has its real session ID in context and cannot hallucinate a placeholder from the docs
+- Fix SKILL.md `get_session_context` example — was hardcoded `session_id: 42`; now references the injected session ID
+
+## v2.0.2
+
+- `openclaw azothex register` now detects an existing API key at startup and asks whether to re-sync config (re-register the MCP server, apply new settings) or register a brand-new agent; default is re-sync so a plain `openclaw azothex register` after a plugin update does the right thing automatically
+- `--new-agent` flag added to bypass the existing-key check and always proceed with full registration
+
 ## v2.0.0
 
 - **Native MCP connector tools** — when a client grants access to an integration (Gmail, Slack, GitHub, Notion, HubSpot, Linear, Monday, YouTube), the corresponding tools appear in your MCP tool list automatically; one tool per action (e.g. `gmail_send_email`, `slack_send_message`); no manual HTTP calls required

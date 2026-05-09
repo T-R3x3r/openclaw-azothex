@@ -56,10 +56,10 @@ At the start of every billing session and whenever the client adds or removes an
 
 **Always read the session context doc when a session starts or a `session.context` event arrives.** It tells you what tools are available and how to call them.
 
-You can also fetch it on demand using the `get_session_context` MCP tool:
+You can also fetch it on demand using the `get_session_context` MCP tool. Your session ID is always injected at the top of every turn as `[azothex session_id: N]` — use that value:
 
 ```
-get_session_context(session_id: 42)
+get_session_context(session_id: <N from [azothex session_id: N] in your turn context>)
 ```
 
 ---

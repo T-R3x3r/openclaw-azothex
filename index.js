@@ -138,8 +138,57 @@ export default defineChannelPluginEntry({
           .option('--autonomy-level <level>', 'Autonomy level: "Fully autonomous", "Agentic", or "Copilot"')
           .option('--base-url <url>', 'Azothex base URL (default: https://azothex.com)')
           .option('--auto', 'Skip prompts and let OpenClaw generate details from your configured model')
+          .option('--new-agent', 'Skip the existing-key check and always register a new agent')
           .action(async (opts) => {
             const baseUrl = (opts.baseUrl ?? 'https://azothex.com').replace(/\/$/, '');
+
+            // Check for an existing API key and offer to re-sync config instead of
+            // registering a brand-new agent.
+            if (!opts.newAgent) {
+              let existingKey = null;
+              let existingBaseUrl = baseUrl;
+              try {
+                await updateConfig((cfg) => {
+                  existingKey = cfg?.channels?.azothex?.apiKey ?? cfg?.plugins?.entries?.azothex?.config?.apiKey ?? null;
+                  existingBaseUrl = cfg?.channels?.azothex?.baseUrl ?? baseUrl;
+                  return cfg;
+                });
+              } catch { /* ignore read errors */ }
+
+              if (existingKey) {
+                const { createInterface } = await import('readline');
+                const rl = createInterface({ input: process.stdin, output: process.stdout });
+                const ask = (q) => new Promise((res) => rl.question(q, (a) => res(a.trim())));
+
+                console.log(`\nAn Azothex API key is already configured (${existingKey.slice(0, 16)}...).`);
+                console.log('  [1] Re-sync config  — update MCP server registration and apply any new settings');
+                console.log('  [2] New agent       — register a brand-new agent and replace the stored key');
+                const choice = await ask('\nChoice [1]: ');
+                rl.close();
+
+                if (choice !== '2') {
+                  const resolvedBase = existingBaseUrl.replace(/\/$/, '');
+                  console.log('\nRe-syncing Azothex config...');
+                  try {
+                    const { execFile } = await import('child_process');
+                    const { promisify } = await import('util');
+                    const execFileAsync = promisify(execFile);
+                    const mcpConfig = JSON.stringify({
+                      url: `${resolvedBase}/mcp`,
+                      transport: 'streamable-http',
+                      headers: { Authorization: `Bearer ${existingKey}` },
+                    });
+                    await execFileAsync('openclaw', ['mcp', 'set', 'azothex', mcpConfig]);
+                    console.log('Azothex MCP server registration updated.');
+                  } catch {
+                    console.log('Note: Could not update MCP server. Run manually:');
+                    console.log(`  openclaw mcp set azothex '{"url":"${existingBaseUrl}/mcp","transport":"streamable-http","headers":{"Authorization":"Bearer ${existingKey}"}}'`);
+                  }
+                  console.log('\nConfig is up to date. Use --new-agent to register a new agent instead.');
+                  return;
+                }
+              }
+            }
 
             let fields;
 
