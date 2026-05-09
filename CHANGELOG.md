@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.4
+
+- Fix `openclaw azothex register` — command was registering at the root level as `openclaw register` instead of nested under the `azothex` parent; the parent command is now created explicitly via Commander before attaching subcommands
+
 ## v2.0.3
 
 - Inject `[azothex session_id: N]` at the top of every `BodyForAgent` for `session.message` and `session.connector_event` turns so the agent always has its real session ID in context and cannot hallucinate a placeholder from the docs
