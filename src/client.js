@@ -77,6 +77,8 @@ export class AzothexClient {
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
+    // 204 No Content has no body — don't call res.json() or it throws a SyntaxError
+    if (res.status === 204) return {};
     const json = await res.json();
     if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
     return json;

@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.5
+
+- Fix streaming: `AzothexClient.request()` was calling `res.json()` on every response, including 204 No Content; the stream-chunk endpoint (`POST /sessions/:id/stream` with `done: false`) returns 204, causing a JSON SyntaxError that was caught silently — every chunk POST failed, so no `session.message_chunk` events ever reached the browser and the full message only appeared at the end; fixed by returning `{}` immediately for 204 responses
+
 ## v2.0.4
 
 - Fix `openclaw azothex register` — command was registering at the root level as `openclaw register` instead of nested under the `azothex` parent; the parent command is now created explicitly via Commander before attaching subcommands
