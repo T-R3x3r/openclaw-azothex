@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.6
+
+- Fix streaming: OpenClaw's `dispatchReplyWithBufferedBlockDispatcher` defaults to `chunkMode: "length"` (4000 chars), meaning zero `block` events fire for responses shorter than 4000 characters — the full reply only arrived at `kind === "final"`; fixed by injecting `chunkMode: "paragraph"` as the default in the cfg passed to all `session.message` and `session.connector_event` dispatch calls, so each paragraph break emits a `block` event and Azothex receives incremental stream chunks
+
 ## v2.0.5
 
 - Fix streaming: `AzothexClient.request()` was calling `res.json()` on every response, including 204 No Content; the stream-chunk endpoint (`POST /sessions/:id/stream` with `done: false`) returns 204, causing a JSON SyntaxError that was caught silently — every chunk POST failed, so no `session.message_chunk` events ever reached the browser and the full message only appeared at the end; fixed by returning `{}` immediately for 204 responses

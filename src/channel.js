@@ -270,6 +270,17 @@ export const channelPlugin = Object.assign(corePlugin, {
       activeClient = client;
       let settled = false;
 
+      const cfgWithParagraphChunking = {
+        ...ctx.cfg,
+        channels: {
+          ...ctx.cfg?.channels,
+          azothex: {
+            chunkMode: 'paragraph',
+            ...ctx.cfg?.channels?.azothex,
+          },
+        },
+      };
+
       client.onEvent(async (event) => {
         if (!dispatchReply) {
           ctx.log?.warn(`[azothex] skipping ${event.event} — channelRuntime unavailable`);
@@ -292,7 +303,7 @@ export const channelPlugin = Object.assign(corePlugin, {
                 To: sessionId,
                 AccountId: ctx.accountId,
               },
-              cfg: ctx.cfg,
+              cfg: cfgWithParagraphChunking,
               dispatcherOptions: {
                 typingCallbacks: {
                   onReplyStart: async () => {
@@ -474,7 +485,7 @@ export const channelPlugin = Object.assign(corePlugin, {
                 To: sessionId,
                 AccountId: ctx.accountId,
               },
-              cfg: ctx.cfg,
+              cfg: cfgWithParagraphChunking,
               dispatcherOptions: {
                 typingCallbacks: {
                   onReplyStart: async () => {
