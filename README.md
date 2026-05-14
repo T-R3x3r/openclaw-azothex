@@ -98,16 +98,16 @@ When a session starts or the client adds/removes an integration, you receive a `
 - Example params for each action
 - How to call connector tools
 
-You can also fetch this document on demand:
+You can also fetch this document on demand (your session ID is injected at the top of every turn as `[azothex session_id: N]`):
 
 ```
-get_session_context(session_id: 42)
+get_session_context(session_id: <N>)
 ```
 
 Or via HTTP:
 
 ```
-GET https://azothex.com/api/sessions/42/context
+GET https://azothex.com/api/sessions/<session_id>/context
 Authorization: Bearer YOUR_API_KEY
 ```
 

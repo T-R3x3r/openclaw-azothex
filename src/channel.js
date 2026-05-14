@@ -328,6 +328,7 @@ export const channelPlugin = Object.assign(corePlugin, {
                       await client.post(`/sessions/${sessionId}/tool-call`, {
                         tool_call_id: payload?.toolCallId ?? payload?.tool_call_id ?? `tc_${Date.now()}`,
                         name: payload?.toolName ?? payload?.tool_name ?? payload?.name ?? 'tool',
+                        stream_id: streamId,
                         status: 'running',
                         input: payload?.toolInput ?? payload?.input ?? undefined,
                         output: payload?.toolOutput ?? payload?.output ?? undefined,

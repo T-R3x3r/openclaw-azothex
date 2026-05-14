@@ -1,5 +1,9 @@
 # Changelog
 
+## v2.0.7
+
+- Pass `stream_id` in tool-call notifications (`POST /sessions/:id/tool-call`) so the server can link persisted tool calls to their parent message when the stream completes; tool calls are now saved to the database and rendered inline in the chat history on reload
+
 ## v2.0.6
 
 - Fix streaming: OpenClaw's `dispatchReplyWithBufferedBlockDispatcher` defaults to `chunkMode: "length"` (4000 chars), meaning zero `block` events fire for responses shorter than 4000 characters — the full reply only arrived at `kind === "final"`; fixed by injecting `chunkMode: "paragraph"` as the default in the cfg passed to all `session.message` and `session.connector_event` dispatch calls, so each paragraph break emits a `block` event and Azothex receives incremental stream chunks
